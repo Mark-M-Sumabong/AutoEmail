@@ -2,18 +2,21 @@
   <body style='font-family:Calibri, sans-serif; font-size:11pt;'>
     <p>Hi All,</p>
     <p>We are from the <strong>Cloud App Patching Team</strong>. You are receiving this email because you have been identified as a potential POC, business owner or technical owner of the servers in the table below.</p>
-    <p>As part of our ongoing third-party application review, we are assessing the need for <strong>Google Chrome</strong> on servers. Our goal is to minimize unnecessary browsers installed on servers and recommend using the default browser <strong>Microsoft Edge</strong>.</p>
+
+    <p>As part of our ongoing third-party application review, we are assessing the need for <strong>{{AppNames}}</strong> on servers. Our goal is to minimize unnecessary browsers installed on servers and recommend using the default browser <strong>Microsoft Edge</strong>.</p>
+
     <p>Please review the server(s) listed:</p>
     <table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse;'>
       <tr style='background-color:#f2f2f2;'><th>Server Name</th></tr>
-      {{ROWS}}
+      {{RowsHtml}}
     </table>
-    <p>Please confirm if Google Chrome is still required for any applications or processes on these servers. If yes, please let us know the reason why Google Chrome is still required, and whether Microsoft Edge is not a suitable alternative for your needs.</p>
-    <p>If we do not receive a response by <strong>{{DEADLINE}}</strong>, we will assume Chrome is no longer needed and proceed with its removal from the listed servers.</p>
-    <p>If you have any questions or would like us to manage the removal on your behalf, please let us know.</p>
+
+    <p>Please confirm if {{AppNames}} is still required for any applications or processes on these servers. If yes, please let us know the reason why {{AppNames}} is still required, and whether Microsoft Edge is not a suitable alternative for your needs.</p>
+
+    <p>If we do not receive a response by <strong>June 25, 2025</strong>, we will assume {{AppNames}} is no longer needed and proceed with its removal from the listed servers.</p>
+
     <p>Thank you,</p>
-    <p>
-       Regards,<br>
+    <p>Regards,<br>
        Cloud App Patching Team<br>
        IT Foundation Platform<br>
        Chevron U.S.A Inc.<br>

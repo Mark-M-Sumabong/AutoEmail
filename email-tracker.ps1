@@ -98,12 +98,25 @@ function TrackEmailFollowUp {
 $excelPath     = [System.Environment]::GetEnvironmentVariable('EXCEL_PATH')
 $logFile       = [System.Environment]::GetEnvironmentVariable('LOG_FILE')
 $defaultSender = [System.Environment]::GetEnvironmentVariable('DEFAULT_SENDER')
+$templatePath  = "C:\Users\mark.m.s.sumabong\Documents\GitHub\AutoEmail\EmailTemplate.html"
 
 # Validate if necessary environment variables are set
 if (-not $excelPath -or -not $logFile -or -not $defaultSender) {
     Write-Host "Error: One or more environment variables are not set."
     exit
 }
+
+
+
+# Validate template file
+if (-not (Test-Path $templatePath)) {
+    Write-Host "Error: Email template file not found at $templatePath"
+    exit
+}
+$htmlTemplate = Get-Content -Path $templatePath -Raw
+
+
+
 
 
 # === Prepare Log File ===
@@ -199,31 +212,8 @@ foreach ($entry in $emailMap.GetEnumerator()) {
         $computers | ForEach-Object { "<tr><td>$($_)</td></tr>" }
     ) -join "`n"
 
-    $htmlBody = @"
-<html>
-  <body style='font-family:Calibri, sans-serif; font-size:11pt;'>
-    <p>Hi All,</p>
-    <p>We are from the <strong>Cloud App Patching Team</strong>. You are receiving this email because you have been identified as a potential POC, business owner or technical owner of the servers in the table below.</p>
-    <p>As part of our ongoing third-party application review, we are assessing the need for <strong>Google Chrome</strong> on servers. Our goal is to minimize unnecessary browsers installed on servers and recommend using the default browser <strong>Microsoft Edge</strong>.</p>
-    <p>Please review the server(s) listed:</p>
-    <table border='1' cellpadding='5' cellspacing='0' style='border-collapse:collapse;'>
-      <tr style='background-color:#f2f2f2;'><th>Server Name</th></tr>
-      $rowsHtml
-    </table>
-    <p>Please confirm if Google Chrome is still required for any applications or processes on these servers. If yes, please let us know the reason why Google Chrome is still required, and whether Microsoft Edge is not a suitable alternative for your needs.</p>
-    <p>If we do not receive a response by <strong>June 25, 2025</strong>, we will assume Chrome is no longer needed and proceed with its removal from the listed servers.</p>
-    <p>If you have any questions or would like us to manage the removal on your behalf, please let us know.</p>
-    <p>Thank you,</p>
-    <p>Regards,<br>
-       Cloud App Patching Team<br>
-       IT Foundation Platform<br>
-       Chevron U.S.A Inc.<br>
-       6/F 6750 Office Tower, Ayala Avenue<br>
-       1226 Makati City, Philippines
-    </p>
-  </body>
-</html>
-"@
+    # Inject into template (no regex; safe and simple)
+    $htmlBody = $htmlTemplate.Replace("{{AppNames}}", [System.Web.HttpUtility]::HtmlEncode($subjectApps)).Replace("{{RowsHtml}}", $rowsHtml)
 
     try {
         # Create and send

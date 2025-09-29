@@ -41,15 +41,11 @@ function TrackEmailFollowUp {
         [string]$subject
     )
 
-    # Define the Access database file path (change to your actual file path)
     $accessDbPath = "C:\Users\mark.m.s.sumabong\Desktop\PowerShell\email_tracking.accdb"
-
-    # Connect to the Access database using ADO.NET
     $connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=$accessDbPath;"
     $connection = New-Object -TypeName System.Data.OleDb.OleDbConnection -ArgumentList $connectionString
     $connection.Open()
 
-    # Check if the email address and subject already exist in the table
     $query = "SELECT * FROM EmailTracking WHERE EmailAddress = ? AND Subject = ?"
     $command = $connection.CreateCommand()
     $command.CommandText = $query
@@ -59,13 +55,11 @@ function TrackEmailFollowUp {
     $reader = $command.ExecuteReader()
 
     if ($reader.HasRows) {
-        # If email exists, update follow-up count and date
         $reader.Read()
         $followUpCount = $reader["FollowUpCount"]
         $newFollowUpCount = $followUpCount + 1
         $lastFollowUpDate = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
 
-        # Update follow-up count and last follow-up date
         $updateQuery = "UPDATE EmailTracking SET FollowUpCount = ?, LastFollowUpDate = ? WHERE ID = ?"
         $updateCommand = $connection.CreateCommand()
         $updateCommand.CommandText = $updateQuery
@@ -76,7 +70,6 @@ function TrackEmailFollowUp {
         $updateCommand.ExecuteNonQuery()
         Write-Host "Follow-up #$newFollowUpCount updated for $emailAddress"
     } else {
-        # If email doesn't exist, insert a new record
         $createdAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
         $insertQuery = "INSERT INTO EmailTracking (EmailAddress, Subject, Status, FollowUpCount, LastFollowUpDate, CreatedAt) VALUES (?, ?, 'Sent', 1, ?, ?)"
         $insertCommand = $connection.CreateCommand()
@@ -90,7 +83,6 @@ function TrackEmailFollowUp {
         Write-Host "New email entry added for $emailAddress"
     }
 
-    # Clean up
     CleanupAccess -connection $connection
 }
 
@@ -100,26 +92,17 @@ $logFile       = [System.Environment]::GetEnvironmentVariable('LOG_FILE')
 $defaultSender = [System.Environment]::GetEnvironmentVariable('DEFAULT_SENDER')
 $templatePath  = "C:\Users\mark.m.s.sumabong\Documents\GitHub\AutoEmail\EmailTemplate.html"
 
-# Validate if necessary environment variables are set
 if (-not $excelPath -or -not $logFile -or -not $defaultSender) {
     Write-Host "Error: One or more environment variables are not set."
     exit
 }
 
-
-
-# Validate template file
 if (-not (Test-Path $templatePath)) {
     Write-Host "Error: Email template file not found at $templatePath"
     exit
 }
 $htmlTemplate = Get-Content -Path $templatePath -Raw
 
-
-
-
-
-# === Prepare Log File ===
 try {
     if (!(Test-Path $logFile)) {
         "Timestamp,Email,Computers,Status,ErrorMessage" |
@@ -145,33 +128,36 @@ try {
     exit
 }
 
-# === Build email → [computers] map ===
+# === Build email → [computers, CC] map ===
 $emailMap = @{ }
 for ($row = 2; $row -le $lastRow; $row++) {
     try {
-            $email    = $sheet.Cells.Item($row, 5).Text   # Column "To"
-            $computer = $sheet.Cells.Item($row, 1).Text   # Column "Computer Name"
-            $appName  = $sheet.Cells.Item($row, 4).Text   # Column "App Name"
-            $status   = $sheet.Cells.Item($row, 8).Text   # Column "Status"
+        $email    = $sheet.Cells.Item($row, 5).Text   # Column "To"
+        $computer = $sheet.Cells.Item($row, 1).Text   # Column "Computer Name"
+        $appName  = $sheet.Cells.Item($row, 4).Text   # Column "App Name"
+        $status   = $sheet.Cells.Item($row, 8).Text   # Column "Status"
+        $ccValue  = $sheet.Cells.Item($row, 6).Text   # Column "CC"
 
-            # Normalize status text and check for exact match
-            if ($status.Trim() -eq "Pending" -and -not [string]::IsNullOrWhiteSpace($email)) {
-                if (-not $emailMap.ContainsKey($email)) {
-                    $emailMap[$email] = @{
-                        Computers = New-Object System.Collections.ArrayList
-                        AppNames  = New-Object 'System.Collections.Generic.HashSet[string]'
-                    }
-                }
-                [void]$emailMap[$email].Computers.Add($computer)
-                if (-not [string]::IsNullOrWhiteSpace($appName)) {
-                    [void]$emailMap[$email].AppNames.Add($appName.Trim())
+        if ($status.Trim() -eq "Pending" -and -not [string]::IsNullOrWhiteSpace($email)) {
+            if (-not $emailMap.ContainsKey($email)) {
+                $emailMap[$email] = @{
+                    Computers = New-Object System.Collections.ArrayList
+                    AppNames  = New-Object 'System.Collections.Generic.HashSet[string]'
+                    CC        = New-Object 'System.Collections.Generic.HashSet[string]'
                 }
             }
-        } catch {
-            Write-Host "Error processing row $row in Excel: $_"
+            [void]$emailMap[$email].Computers.Add($computer)
+            if (-not [string]::IsNullOrWhiteSpace($appName)) {
+                [void]$emailMap[$email].AppNames.Add($appName.Trim())
+            }
+            if (-not [string]::IsNullOrWhiteSpace($ccValue)) {
+                [void]$emailMap[$email].CC.Add($ccValue.Trim())
+            }
         }
+    } catch {
+        Write-Host "Error processing row $row in Excel: $_"
     }
-
+}
 
 # === Launch Outlook & Pick Sender Account ===
 $outlook = $null
@@ -190,13 +176,11 @@ try {
 }
 
 # === Send one email per recipient ===
-
 foreach ($entry in $emailMap.GetEnumerator()) {
     $email      = $entry.Key
     $computers  = $entry.Value.Computers | Sort-Object | Get-Unique
     $compList   = $computers -join "; "
 
-    # Build subject with app names
     $appsSorted    = $entry.Value.AppNames | Sort-Object
     $subjectApps   = ($appsSorted -join ", ")
     if ($subjectApps.Length -gt 80) {
@@ -207,29 +191,29 @@ foreach ($entry in $emailMap.GetEnumerator()) {
     }
     $subject = "Follow-Up: $subjectApps Assessment on Your Server(s)"
 
-    # Build HTML rows
     $rowsHtml = (
         $computers | ForEach-Object { "<tr><td>$($_)</td></tr>" }
     ) -join "`n"
 
-    # Inject into template (no regex; safe and simple)
     $htmlBody = $htmlTemplate.Replace("{{AppNames}}", [System.Web.HttpUtility]::HtmlEncode($subjectApps)).Replace("{{RowsHtml}}", $rowsHtml)
 
+    $ccList = ($entry.Value.CC | Sort-Object | Get-Unique) -join "; "
+
     try {
-        # Create and send
         $mail = $outlook.CreateItem(0)
         $mail.SendUsingAccount = $account
         $mail.Attachments.Add($excelPath)
         $mail.To       = $email
-        $mail.Subject  = $subject   # ✅ Use dynamic subject
+        if (-not [string]::IsNullOrWhiteSpace($ccList)) {
+            $mail.CC = $ccList
+        }
+        $mail.Subject  = $subject
         $mail.HTMLBody = $htmlBody
         $mail.Send()
 
-        # Track email sent status in Access
-        TrackEmailFollowUp -emailAddress $email -subject $subject  # ✅ Use dynamic subject
+        TrackEmailFollowUp -emailAddress $email -subject $subject
         Write-Log -Email $email -Computers $compList -Status "Sent"
         Start-Sleep -Seconds 2
-
     } catch {
         $err = $_.Exception.Message
         Write-Log -Email $email -Computers $compList -Status "Failed" -ErrorMessage $err
@@ -250,4 +234,3 @@ try {
 }
 
 Write-Host "`n✅ All done! Log saved to $logFile"
-

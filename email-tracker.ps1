@@ -38,7 +38,7 @@ function Get-EnvValue {
 }
 
 # === Helper: Load variables from a .env file into the current Process env ===
-function Load-DotEnv {
+function LoadDotEnv {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -98,7 +98,7 @@ function Load-DotEnv {
 }
 
 # === 0) Load .env (before validation) ===
-Load-DotEnv -Path $DotEnvPath -OverrideExisting:$DotEnvOverride
+LoadDotEnv -Path $DotEnvPath -OverrideExisting:$DotEnvOverride
 
 # === 1) Validate Required Environment Variables (Fail Fast) ===
 $requiredVars = @(
@@ -107,7 +107,8 @@ $requiredVars = @(
     "ACCESS_DB_PATH",
     "EMAIL_TEMPLATE_PATH",
     "DEFAULT_SENDER",
-    "ATTACH_THRESHOLD"  # optional; we still validate and default later
+    "ATTACH_THRESHOLD",  # optional; we still validate and default later
+    "EMAIL_DEADLINE"
 )
 
 $missingVars = @()
